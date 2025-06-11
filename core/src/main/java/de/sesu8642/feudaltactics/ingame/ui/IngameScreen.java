@@ -136,6 +136,7 @@ public class IngameScreen extends GameScreen {
         addIngameMenuListeners();
         addParameterInputListeners();
         addHudListeners();
+        configureSeedHistoryCallbacks();
     }
 
     /**
@@ -667,10 +668,24 @@ public class IngameScreen extends GameScreen {
     public enum IngameStages {
         PARAMETERS, HUD, MENU, SEED_HISTORY
     }
+    private void configureSeedHistoryCallbacks() {
+        seedHistoryStage.setOnSeedSelected(this::loadSeedFromHistory);
+        seedHistoryStage.setOnBackPressed(() -> activateStage(IngameStages.PARAMETERS));
+    }
     private void loadSeedFromHistory(SeedHistoryEntry entry) {
-        NewGamePreferences preferences = entry.toNewGamePreferences();
-        updateParameterInputsFromNewGamePrefs(preferences);
-        eventBus.post(new RegenerateMapEvent(preferences.toGameParameters()));
+        parameterInputStage.updateSeed(entry.getSeed());
+        cachedNewGamePreferences.setSeed(entry.getSeed());
+        cachedNewGamePreferences.setMapSize(entry.getMapSize());
+        cachedNewGamePreferences.setDensity(entry.getDensity());
+        cachedNewGamePreferences.setBotIntelligence(entry.getBotIntelligence());
+        cachedNewGamePreferences.setStartingPosition(entry.getStartingPosition());
+
+        // Update all the UI elements with the loaded preferences
+        updateParameterInputsFromNewGamePrefs(cachedNewGamePreferences);
+
+        newGamePrefDao.saveNewGamePreferences(cachedNewGamePreferences);
+        eventBus.post(new RegenerateMapEvent(cachedNewGamePreferences.toGameParameters()));
+        centerMap();
         activateStage(IngameStages.PARAMETERS);
     }
 }
