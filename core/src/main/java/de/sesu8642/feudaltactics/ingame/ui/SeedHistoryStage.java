@@ -32,10 +32,12 @@ public class SeedHistoryStage extends ResizableResettableStage {
     private Table historyTable;
     private TextButton backButton;
     private TextButton clearButton;
-    private ButtonGroup<CheckBox> filterGroup;
-    private CheckBox allGamesCheckBox;
-    private CheckBox completedGamesCheckBox;
-    private CheckBox wonGamesCheckBox;
+
+    // Changed from CheckBox to SelectBox for filter options
+    private SelectBox<String> filterSelectBox;
+    private static final String FILTER_ALL = "All Games";
+    private static final String FILTER_COMPLETED = "Completed";
+    private static final String FILTER_WON = "Won Games";
 
     private Consumer<SeedHistoryEntry> onSeedSelected;
     private Runnable onBackPressed;
@@ -49,24 +51,13 @@ public class SeedHistoryStage extends ResizableResettableStage {
     }
 
     private void initUi() {
-        // Filter options
-        allGamesCheckBox = new CheckBox("All Games", skin);
-        completedGamesCheckBox = new CheckBox("Completed", skin);
-        wonGamesCheckBox = new CheckBox("Won Games", skin);
+        // Filter options using SelectBox instead of CheckBox
+        filterSelectBox = new SelectBox<>(skin);
+        filterSelectBox.setItems(FILTER_ALL, FILTER_COMPLETED, FILTER_WON);
+        filterSelectBox.setSelected(FILTER_ALL);
 
-        filterGroup = new ButtonGroup<>();
-        filterGroup.add(allGamesCheckBox);
-        filterGroup.add(completedGamesCheckBox);
-        filterGroup.add(wonGamesCheckBox);
-        filterGroup.setMaxCheckCount(1);
-        filterGroup.setMinCheckCount(1);
-        allGamesCheckBox.setChecked(true);
-
-        // Add filter listeners
-        EventListener filterListener = new ExceptionLoggingChangeListener(this::refreshHistoryList);
-        allGamesCheckBox.addListener(filterListener);
-        completedGamesCheckBox.addListener(filterListener);
-        wonGamesCheckBox.addListener(filterListener);
+        // Add filter listener
+        filterSelectBox.addListener(new ExceptionLoggingChangeListener(this::refreshHistoryList));
 
         // History table
         historyTable = new Table();
@@ -98,12 +89,10 @@ public class SeedHistoryStage extends ResizableResettableStage {
         rootTable.add(titleLabel).center().colspan(3).pad(0, 0, 20, 0);
         rootTable.row();
 
-        // Filters
+        // Filter
         Table filterTable = new Table();
         filterTable.add(new Label("Filter:", skin)).padRight(10);
-        filterTable.add(allGamesCheckBox).padRight(10);
-        filterTable.add(completedGamesCheckBox).padRight(10);
-        filterTable.add(wonGamesCheckBox);
+        filterTable.add(filterSelectBox).fillX();
 
         rootTable.add(filterTable).center().colspan(3).pad(0, 0, 10, 0);
         rootTable.row();
@@ -125,9 +114,11 @@ public class SeedHistoryStage extends ResizableResettableStage {
         historyTable.clear();
 
         List<SeedHistoryEntry> history;
-        if (wonGamesCheckBox.isChecked()) {
+        String selectedFilter = filterSelectBox.getSelected();
+
+        if (FILTER_WON.equals(selectedFilter)) {
             history = seedHistoryDao.getFavoriteSeeds();
-        } else if (completedGamesCheckBox.isChecked()) {
+        } else if (FILTER_COMPLETED.equals(selectedFilter)) {
             history = seedHistoryDao.getCompletedGames();
         } else {
             history = seedHistoryDao.getSeedHistory();
@@ -207,7 +198,7 @@ public class SeedHistoryStage extends ResizableResettableStage {
 
     @Override
     public void reset() {
-        allGamesCheckBox.setChecked(true);
+        filterSelectBox.setSelected(FILTER_ALL);
         refreshHistoryList();
     }
 

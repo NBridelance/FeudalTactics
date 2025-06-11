@@ -369,7 +369,7 @@ public class IngameScreen extends GameScreen {
         Dialog endDialog = dialogFactory.createDialog(result -> {
             switch ((byte) result) {
                 case 1:
-                    // exit button
+                    // exit button - Le résultat a déjà été enregistré avant d'afficher ce dialog
                     exitToMenu();
                     break;
                 case 2:
@@ -382,6 +382,12 @@ public class IngameScreen extends GameScreen {
                     break;
             }
         });
+
+        // Enregistrer le résultat AVANT d'afficher le dialog
+        if (cachedGameState != null) {
+            seedHistoryDao.updateSeedEntry(cachedGameState.getSeed(), win);
+        }
+
         endDialog.button("Exit", (byte) 1);
         if (win) {
             endDialog.text("VICTORY! Your Enemies surrender.\n\nDo you wish to continue?\n");
@@ -395,6 +401,7 @@ public class IngameScreen extends GameScreen {
     }
 
     private void showAllEnemiesDefeatedMessage() {
+        // Enregistrer la victoire AVANT d'afficher le dialog
         if (cachedGameState != null) {
             seedHistoryDao.updateSeedEntry(cachedGameState.getSeed(), true);
         }
@@ -405,6 +412,7 @@ public class IngameScreen extends GameScreen {
     }
 
     private void showPlayerDefeatedMessage() {
+        // Enregistrer la défaite AVANT d'afficher le dialog
         if (cachedGameState != null) {
             seedHistoryDao.updateSeedEntry(cachedGameState.getSeed(), false);
         }
@@ -432,8 +440,8 @@ public class IngameScreen extends GameScreen {
         endDialog.text("DEFEAT! All your kingdoms were conquered by the enemy.\n");
         endDialog.show(ingameHudStage);
     }
-
     private void showEnemyWonMessage() {
+        // Enregistrer la défaite AVANT d'afficher le dialog
         if (cachedGameState != null) {
             seedHistoryDao.updateSeedEntry(cachedGameState.getSeed(), false);
         }
@@ -456,7 +464,6 @@ public class IngameScreen extends GameScreen {
         endDialog.text("DEFEAT! Your enemy won the game.\n");
         endDialog.show(ingameHudStage);
     }
-
     private void showGameDetails() {
         String gameDetails = String.format("Round: %s\n", cachedGameState.getRound())
                 + cachedNewGamePreferences.toSharableString();
