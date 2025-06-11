@@ -21,6 +21,8 @@ import de.sesu8642.feudaltactics.lib.ingame.GameController;
 import de.sesu8642.feudaltactics.lib.ingame.botai.BotAi;
 import de.sesu8642.feudaltactics.menu.preferences.MainPreferencesDao;
 import de.sesu8642.feudaltactics.renderer.MapRenderer;
+import de.sesu8642.feudaltactics.ingame.dagger.SeedHistoryPrefStore;
+import de.sesu8642.feudaltactics.ingame.SeedHistoryDao;
 
 import javax.inject.Singleton;
 import java.util.concurrent.ExecutorService;
@@ -103,5 +105,10 @@ public class IngameDaggerModule {
         return Executors
                 .newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("botai-%d").setDaemon(true).build());
     }
-    
+    @Provides
+    @Singleton
+    @SeedHistoryPrefStore
+    static Preferences provideSeedHistoryPrefStore(@PreferencesPrefixProperty String prefix) {
+        return Gdx.app.getPreferences(prefix + SeedHistoryDao.SEED_HISTORY_PREFERENCES_NAME);
+    }
 }

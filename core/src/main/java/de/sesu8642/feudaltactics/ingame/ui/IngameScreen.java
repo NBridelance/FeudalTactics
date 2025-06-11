@@ -28,6 +28,8 @@ import de.sesu8642.feudaltactics.menu.common.dagger.MenuViewport;
 import de.sesu8642.feudaltactics.menu.common.ui.*;
 import de.sesu8642.feudaltactics.menu.preferences.MainPreferencesDao;
 import de.sesu8642.feudaltactics.renderer.MapRenderer;
+import de.sesu8642.feudaltactics.ingame.SeedHistoryDao;
+import de.sesu8642.feudaltactics.ingame.SeedHistoryEntry;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -40,7 +42,8 @@ import java.util.stream.Stream;
  */
 @Singleton
 public class IngameScreen extends GameScreen {
-
+    private final SeedHistoryDao seedHistoryDao;
+    private final SeedHistoryStage seedHistoryStage;
     private final MainPreferencesDao mainPrefsDao;
 
     private final OrthographicCamera ingameCamera;
@@ -81,6 +84,7 @@ public class IngameScreen extends GameScreen {
     // current speed that the enemy turns are displayed in
     private Speed currentBotSpeed = Speed.NORMAL;
 
+
     /**
      * Constructor.
      *
@@ -108,7 +112,8 @@ public class IngameScreen extends GameScreen {
                         CombinedInputProcessor inputProcessor, FeudalTacticsGestureDetector gestureDetector,
                         InputValidationHelper inputValidationHelper, InputMultiplexer inputMultiplexer,
                         IngameHudStage ingameHudStage, IngameMenuStage menuStage,
-                        ParameterInputStage parameterInputStage) {
+                        ParameterInputStage parameterInputStage, SeedHistoryDao seedHistoryDao,
+                        SeedHistoryStage seedHistoryStage) {
         super(ingameCamera, viewport, ingameHudStage);
         this.mainPrefsDao = mainPrefsDao;
         this.newGamePrefDao = newGamePrefDao;
@@ -124,6 +129,8 @@ public class IngameScreen extends GameScreen {
         this.ingameHudStage = ingameHudStage;
         this.menuStage = menuStage;
         this.parameterInputStage = parameterInputStage;
+        this.seedHistoryDao = seedHistoryDao;
+        this.seedHistoryStage = seedHistoryStage;
         // load before adding the listeners because they will trigger persisting the preferences on each update
         loadNewGameParameterValues();
         addIngameMenuListeners();
@@ -203,6 +210,9 @@ public class IngameScreen extends GameScreen {
         boolean isLocalPlayerTurnNew = gameState.getActivePlayer().getType() == Type.LOCAL_PLAYER;
         boolean humanPlayerTurnJustStarted = !isLocalPlayerTurn && isLocalPlayerTurnNew;
         isLocalPlayerTurn = isLocalPlayerTurnNew;
+
+
+
         boolean winnerChanged =
                 gameState.getWinner() != null
                         && winnerBeforeBotTurnPlayerIndex != gameState.getWinner().getPlayerIndex();
@@ -213,6 +223,20 @@ public class IngameScreen extends GameScreen {
         cachedGameState = GameStateHelper.getCopy(gameState);
         // update the UI
         GameState newGameState = gameState;
+
+        // Track new game start
+        if (newGameState.getRound() == 0 && newGameState.getActiveKingdom() == null && !isSpectateMode) {
+            // Nouveau jeu qui commence, ajouter à l'historique
+            NewGamePreferences prefs = cachedNewGamePreferences;
+            SeedHistoryEntry entry = new SeedHistoryEntry(
+                    prefs.getSeed(),
+                    prefs.getMapSize(),
+                    prefs.getDensity(),
+                    prefs.getBotIntelligence(),
+                    prefs.getStartingPosition()
+            );
+            seedHistoryDao.addSeedEntry(entry);
+        }
         // hand content
         if (newGameState.getHeldObject() != null) {
             ingameHudStage.updateHandContent(newGameState.getHeldObject().getSpriteName());
@@ -370,6 +394,9 @@ public class IngameScreen extends GameScreen {
     }
 
     private void showAllEnemiesDefeatedMessage() {
+        if (cachedGameState != null) {
+            seedHistoryDao.updateSeedEntry(cachedGameState.getSeed(), true);
+        }
         Dialog endDialog = dialogFactory.createDialog(result -> exitToMenu());
         endDialog.button("Exit");
         endDialog.text("VICTORY! You defeated all your enemies.\n");
@@ -377,6 +404,9 @@ public class IngameScreen extends GameScreen {
     }
 
     private void showPlayerDefeatedMessage() {
+        if (cachedGameState != null) {
+            seedHistoryDao.updateSeedEntry(cachedGameState.getSeed(), false);
+        }
         Dialog endDialog = dialogFactory.createDialog(result -> {
             switch ((byte) result) {
                 case 1:
@@ -403,6 +433,9 @@ public class IngameScreen extends GameScreen {
     }
 
     private void showEnemyWonMessage() {
+        if (cachedGameState != null) {
+            seedHistoryDao.updateSeedEntry(cachedGameState.getSeed(), false);
+        }
         Dialog endDialog = dialogFactory.createDialog(result -> {
             switch ((byte) result) {
                 case 1:
@@ -455,6 +488,11 @@ public class IngameScreen extends GameScreen {
                 inputMultiplexer.addProcessor(gestureDetector);
                 inputMultiplexer.addProcessor(inputProcessor);
                 setActiveStage(parameterInputStage);
+                break;
+            case SEED_HISTORY:
+                inputMultiplexer.addProcessor(seedHistoryStage);
+                inputMultiplexer.addProcessor(inputProcessor);
+                setActiveStage(seedHistoryStage);
                 break;
             default:
                 throw new IllegalStateException("Unknown stage " + ingameStage);
@@ -543,6 +581,8 @@ public class IngameScreen extends GameScreen {
                 .forEach(actor -> actor.addListener(new ExceptionLoggingChangeListener(this::centerMap)));
         parameterInputStage.playButton
                 .addListener(new ExceptionLoggingChangeListener(() -> eventBus.post(new GameStartEvent())));
+        parameterInputStage.historyButton.addListener(new ExceptionLoggingChangeListener(() ->
+                activateStage(IngameStages.SEED_HISTORY)));
     }
 
     private void addHudListeners() {
@@ -625,7 +665,12 @@ public class IngameScreen extends GameScreen {
      * Stages that can be displayed.
      */
     public enum IngameStages {
-        PARAMETERS, HUD, MENU
+        PARAMETERS, HUD, MENU, SEED_HISTORY
     }
-
+    private void loadSeedFromHistory(SeedHistoryEntry entry) {
+        NewGamePreferences preferences = entry.toNewGamePreferences();
+        updateParameterInputsFromNewGamePrefs(preferences);
+        eventBus.post(new RegenerateMapEvent(preferences.toGameParameters()));
+        activateStage(IngameStages.PARAMETERS);
+    }
 }

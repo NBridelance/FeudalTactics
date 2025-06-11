@@ -61,6 +61,7 @@ public class ParameterInputStage extends ResizableResettableStage {
     ImageButton pasteButton;
     TextButton playButton;
     TextField seedTextField;
+    TextButton historyButton;
     private Table rootTable;
 
     /**
@@ -113,6 +114,8 @@ public class ParameterInputStage extends ResizableResettableStage {
         pasteButton = ButtonFactory.createImageButton(SkinConstants.BUTTON_PASTE, skin);
         pasteButton.getImageCell().expand().fill();
 
+        historyButton = ButtonFactory.createTextButton("History", skin);
+
         /*
          * The longest text on the screen is the seed text field. It allows for 18
          * characters at max and 7 is the widest number. Scrolling the text is possible.
@@ -153,6 +156,10 @@ public class ParameterInputStage extends ResizableResettableStage {
         rootTable.add(densitySelect).fillX();
         rootTable.add(pasteButton).right().padLeft(OUTER_PADDING_PX).padRight(OUTER_PADDING_PX).height(INPUT_HEIGHT_PX)
                 .width(INPUT_HEIGHT_PX);
+        rootTable.row();
+        rootTable.add(); // Empty cell for alignment
+        rootTable.add(historyButton).fillX();
+        rootTable.add(); // Empty cell for alignment
         rootTable.row();
         rootTable.add(playButton).colspan(3).fillX().pad(INPUT_PADDING_PX / 2F, OUTER_PADDING_PX, OUTER_PADDING_PX,
                 OUTER_PADDING_PX);
